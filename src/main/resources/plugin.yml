@@ -1,0 +1,87 @@
+name: EventPVP
+version: 1.0.0
+main: org.novania.eventpvp.EventPVP
+api-version: 1.21
+author: Novania
+description: Système d'événements PvP par équipes avec glow automatique dans le monde event
+website: https://novania.org
+depend: [TheGlow]
+softdepend: [Vault]
+
+commands:
+  event:
+    description: Commandes principales d'EventPVP
+    aliases: [eventpvp, pvpevent]
+    permission: eventpvp.participate
+    usage: /event [kits|stats|team|leaderboard|admin]
+  eventpvp:
+    description: Commandes administrateur du plugin
+    aliases: [epvp]
+    permission: eventpvp.admin.panel
+    usage: /eventpvp <reload|info>
+
+permissions:
+  eventpvp.admin.*:
+    description: Accès admin complet
+    default: op
+    children:
+      - eventpvp.admin.panel
+      - eventpvp.admin.assign
+      - eventpvp.admin.reset
+      - eventpvp.admin.victory
+      - eventpvp.admin.kick
+      - eventpvp.admin.glow
+      - eventpvp.admin.bypass
+      - eventpvp.participate
+      - eventpvp.kits.use
+      - eventpvp.stats.view
+      - eventpvp.chat.team
+      - eventpvp.spectate
+  
+  eventpvp.admin.panel:
+    description: Accès panel admin complet
+    default: op
+  eventpvp.admin.assign:
+    description: Assigner des équipes
+    default: op
+  eventpvp.admin.reset:
+    description: Reset points/stats
+    default: op
+  eventpvp.admin.victory:
+    description: Modifier conditions victoire
+    default: op
+  eventpvp.admin.kick:
+    description: Expulser du monde event
+    default: op
+  eventpvp.admin.glow:
+    description: Gérer glow manuellement
+    default: op
+  eventpvp.admin.bypass:
+    description: Bypass toutes restrictions
+    default: op
+  
+  eventpvp.participate:
+    description: Participer aux events
+    default: true
+  eventpvp.kits.use:
+    description: Utiliser les kits
+    default: true
+  eventpvp.stats.view:
+    description: Voir ses stats
+    default: true
+  eventpvp.chat.team:
+    description: Chat d'équipe
+    default: true
+  eventpvp.spectate:
+    description: Mode spectateur
+    default: true
+  
+  eventpvp.glow.immune:
+    description: Pas de glow automatique
+    default: false
+  eventpvp.teamkill.bypass:
+    description: Peut attaquer coéquipiers
+    default: false
+  eventpvp.kit.unlimited:
+    description: Kits illimités (même build)
+    default: false

@@ -1,0 +1,170 @@
+# ========================================
+# 📄 config.yml - EventPVP
+# ========================================
+
+# Configuration du Système d'Événements PvP
+# Intégré avec TheGlow et fonctionnant exclusivement dans le monde "event"
+
+# ===========================================
+# PARAMÈTRES GÉNÉRAUX
+# ===========================================
+general:
+  world_name: "event"
+  auto_glow: true
+  sounds_enabled: true
+  effects_enabled: true
+  debug_mode: false
+
+# ===========================================
+# CONDITIONS DE VICTOIRE
+# ===========================================
+victory:
+  type: "team_points"      # team_points, kill_limit, time_limit
+  target: 50               # Points pour gagner
+  auto_reset: true         # Reset automatique après victoire
+  announce_progress: true  # Annonces progression
+  milestones: [25, 50, 75] # % d'annonces
+
+# ===========================================
+# CONFIGURATION DES ÉQUIPES
+# ===========================================
+teams:
+  rouge:
+    display_name: "Rouge"
+    color_code: "&c"
+    glow_color: "red"
+    warp: "eventred"
+    permission: "eventpvp.team.rouge"
+  
+  bleu:
+    display_name: "Bleu"
+    color_code: "&9"
+    glow_color: "blue"
+    warp: "eventblue"
+    permission: "eventpvp.team.bleu"
+  
+  spectator:
+    display_name: "Spectateur"
+    color_code: "&7"
+    glow_color: "white"
+    warp: "eventspectator"
+    permission: "eventpvp.team.spectator"
+
+# ===========================================
+# CONFIGURATION DES KITS
+# ===========================================
+kits:
+  build:
+    usage_limit: 1           # Une fois par session
+    reset_on_death: false    # Pas de reset à la mort
+    
+  combat:
+    usage_limit: -1          # Illimité
+    reset_on_death: true     # Reset à la mort
+
+# ===========================================
+# SYSTÈME DE RESPAWN
+# ===========================================
+respawn:
+  delay: 3                   # Secondes avant respawn
+  clear_inventory: true      # Vider inventaire
+  keep_items: false         # Pas de keep inventory
+  location: "team_warp"      # Respawn au warp d'équipe
+
+# ===========================================
+# MESSAGES
+# ===========================================
+messages:
+  prefix: "&6[&cEventPVP&6] &r"
+  
+  # Messages généraux
+  world_restricted: "&cCette fonctionnalité n'est disponible que dans le monde event !"
+  no_permission: "&cVous n'avez pas la permission !"
+  no_team: "&cVous n'êtes assigné à aucune équipe !"
+  team_kill_denied: "&c⚠️ Vous ne pouvez pas attaquer vos coéquipiers !"
+  wrong_world: "&cVous devez être dans le monde event !"
+  
+  # Messages d'équipe et glow
+  team_assigned: "&a✓ Vous avez été assigné à l'équipe &e{team} &a!"
+  glow_applied_rouge: "&c🔴 Glow rouge appliqué - Prêt au combat !"
+  glow_applied_bleu: "&9🔵 Glow bleu appliqué - Prêt au combat !"
+  glow_applied_spectator: "&7⚪ Mode spectateur activé - Profitez du show !"
+  glow_removed: "&7Glow retiré - Vous avez quitté l'event"
+  no_access: "&c❌ Pas d'accès - Contactez un admin !"
+  wrong_warp: "&c❌ Vous êtes dans l'équipe {team} ! Utilisez /warp {correct_warp}"
+  
+  # Messages de combat et points
+  kill_reward: "&a🎯 +1 point ! (kills personnels: {kills})"
+  team_progress: "&{color}🔥 Équipe {team}: {points}/{target} points ({progress}% de l'objectif)"
+  last_straight: "&c🚨 DERNIÈRE LIGNE DROITE ! Rouge: {rouge_points}/{target} - Bleu: {bleu_points}/{target}"
+  victory_announcement: "&6🏆 L'ÉQUIPE {team} REMPORTE L'EVENT ! 🏆"
+  victory_objective: "&6🎊 Objectif atteint: {target} points !"
+  victory_mvp: "&6🎯 MVP: {mvp} ({kills} kills)"
+  
+  # Messages de mort et respawn
+  death_message: "&c💀 Vous avez été éliminé ! Respawn dans {delay} secondes..."
+  respawn_location: "&a📍 Téléportation au camp {team}"
+  take_kit: "&e🛡️ Reprendre un kit pour continuer le combat !"
+  
+  # Messages de kits
+  kit_taken: "&a✓ Kit {kit} équipé avec succès !"
+  kit_build_used: "&c❌ Kit Build déjà utilisé cette session !"
+  kit_not_available: "&c❌ Ce kit n'est pas disponible !"
+  
+  # Admin
+  reload_success: "&aConfiguration rechargée avec succès !"
+  event_started: "&a✓ Event démarré !"
+  event_stopped: "&c✓ Event arrêté !"
+  points_reset: "&e✓ Points reset !"
+  kits_reset: "&e✓ Kits build reset !"
+  
+  # GUI
+  gui_kits_title: "&6🛡️ Sélection de Kits"
+  gui_stats_title: "&6📊 Statistiques Event"
+  gui_leaderboard_title: "&6🏆 Classement Session"
+  gui_admin_title: "&6🎛️ Panel Admin EventPVP"
+
+# ===========================================
+# BASE DE DONNÉES
+# ===========================================
+database:
+  file: "eventpvp.db"
+
+# ===========================================
+# GUI CONFIGURATION
+# ===========================================
+gui:
+  size: 54
+  items_per_page: 45
+  
+  # Sons et effets
+  sounds:
+    enabled: true
+    click: "UI_BUTTON_CLICK"
+    success: "ENTITY_PLAYER_LEVELUP"
+    error: "ENTITY_VILLAGER_NO"
+    kill: "ENTITY_EXPERIENCE_ORB_PICKUP"
+    death: "ENTITY_PLAYER_DEATH"
+    victory: "UI_TOAST_CHALLENGE_COMPLETE"
+    kit_taken: "BLOCK_NOTE_BLOCK_PLING"
+
+# ===========================================
+# EFFETS ET SONS
+# ===========================================
+effects:
+  kill_firework: true
+  victory_firework: true
+  glow_particles: false
+
+# ===========================================
+# FORMATS
+# ===========================================
+date_format: "dd/MM/yyyy HH:mm"
+
+# ===========================================
+# SCOREBOARD
+# ===========================================
+scoreboard:
+  enabled: true
+  title: "&6⚔️ EVENT PVP ⚔️"
+  update_interval: 20  # ticks (1 seconde)
