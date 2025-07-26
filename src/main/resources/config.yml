@@ -1,5 +1,5 @@
 # ========================================
-# 📄 config.yml - EventPVP
+# 📄 config.yml - EventPVP - RESPAWN FIXÉ
 # ========================================
 
 # Configuration du Système d'Événements PvP
@@ -13,7 +13,7 @@ general:
   auto_glow: true
   sounds_enabled: true
   effects_enabled: true
-  debug_mode: false
+  debug_mode: true  # Activé pour debug
 
 # ===========================================
 # CONDITIONS DE VICTOIRE
@@ -32,21 +32,21 @@ teams:
   rouge:
     display_name: "Rouge"
     color_code: "&c"
-    glow_color: "red"
-    warp: "eventred"
+    glow_color: "red"        # CORRECTION: Couleur compatible TheGlow
+    warp: "eventred"         # CORRECTION: Warp exact
     permission: "eventpvp.team.rouge"
   
   bleu:
     display_name: "Bleu"
     color_code: "&9"
-    glow_color: "blue"
-    warp: "eventblue"
+    glow_color: "blue"       # CORRECTION: Couleur compatible TheGlow
+    warp: "eventblue"        # CORRECTION: Warp exact
     permission: "eventpvp.team.bleu"
   
   spectator:
     display_name: "Spectateur"
     color_code: "&7"
-    glow_color: "white"
+    glow_color: "gray"       # CORRECTION: Couleur compatible TheGlow
     warp: "eventspectator"
     permission: "eventpvp.team.spectator"
 
@@ -63,16 +63,68 @@ kits:
     reset_on_death: true     # Reset à la mort
 
 # ===========================================
-# SYSTÈME DE RESPAWN
+# SYSTÈME DE RESPAWN - TOTALEMENT CORRIGÉ
 # ===========================================
 respawn:
   delay: 3                   # Secondes avant respawn
   clear_inventory: true      # Vider inventaire
-  keep_items: false         # Pas de keep inventory
-  location: "team_warp"      # Respawn au warp d'équipe
+  keep_items: true          # CORRECTION: Keep inventory activé pour éviter les drops
+  location: "coordinates"    # CORRECTION: Utiliser les coordonnées plutôt que les warps
+  use_warps: false          # CORRECTION: Désactiver les warps pour le respawn
+  
+  # CORRECTION: Coordonnées exactes de respawn (MODIFIEZ SELON VOTRE MAP!)
+  coordinates:
+    rouge:
+      x: 100.5              # MODIFIEZ: Position X du spawn rouge
+      y: 65.0               # MODIFIEZ: Position Y du spawn rouge
+      z: 100.5              # MODIFIEZ: Position Z du spawn rouge
+      yaw: 0.0              # Direction de vue
+      pitch: 0.0
+    bleu:
+      x: -99.5              # MODIFIEZ: Position X du spawn bleu
+      y: 65.0               # MODIFIEZ: Position Y du spawn bleu
+      z: -99.5              # MODIFIEZ: Position Z du spawn bleu
+      yaw: 180.0            # Direction de vue (opposée au rouge)
+      pitch: 0.0
+    spectator:
+      x: 0.5                # MODIFIEZ: Position X du spawn spectateur
+      y: 70.0               # MODIFIEZ: Position Y du spawn spectateur
+      z: 0.5                # MODIFIEZ: Position Z du spawn spectateur
+      yaw: 0.0
+      pitch: 0.0
 
 # ===========================================
-# MESSAGES
+# GLOW - CORRECTION PERSISTENCE
+# ===========================================
+glow:
+  # Retrait automatique du glow en quittant le monde
+  auto_remove_on_world_change: true
+  remove_delay: 5           # Délai en ticks avant retrait
+  retry_attempts: 3         # Nombre de tentatives de retrait
+  retry_delay: 20           # Délai entre les tentatives
+  
+  # Couleurs disponibles dans TheGlow
+  available_colors:
+    - "red"
+    - "blue" 
+    - "green"
+    - "yellow"
+    - "orange"
+    - "purple"
+    - "pink"
+    - "gray"
+    - "white"
+    - "black"
+  
+  # Délai avant application du glow (en ticks)
+  apply_delay: 20
+  
+  # Réessayer si échec
+  apply_retry_attempts: 3
+  apply_retry_delay: 20
+
+# ===========================================
+# MESSAGES - CORRIGÉS
 # ===========================================
 messages:
   prefix: "&6[&cEventPVP&6] &r"
@@ -84,27 +136,27 @@ messages:
   team_kill_denied: "&c⚠️ Vous ne pouvez pas attaquer vos coéquipiers !"
   wrong_world: "&cVous devez être dans le monde event !"
   
-  # Messages d'équipe et glow
+  # Messages d'équipe et glow - CORRIGÉS
   team_assigned: "&a✓ Vous avez été assigné à l'équipe &e{team} &a!"
   glow_applied_rouge: "&c🔴 Glow rouge appliqué - Prêt au combat !"
   glow_applied_bleu: "&9🔵 Glow bleu appliqué - Prêt au combat !"
   glow_applied_spectator: "&7⚪ Mode spectateur activé - Profitez du show !"
-  glow_removed: "&7Glow retiré - Vous avez quitté l'event"
-  no_access: "&c❌ Pas d'accès - Contactez un admin !"
+  glow_removed: "&7Glow retiré"
+  no_access: "&c❌ Accès refusé - Vous devez être assigné à une équipe !"
   wrong_warp: "&c❌ Vous êtes dans l'équipe {team} ! Utilisez /warp {correct_warp}"
   
   # Messages de combat et points
-  kill_reward: "&a🎯 +1 point ! (kills personnels: {kills})"
+  kill_reward: "&a🎯 +1 point pour votre équipe ! (Vos kills: {kills})"
   team_progress: "&{color}🔥 Équipe {team}: {points}/{target} points ({progress}% de l'objectif)"
   last_straight: "&c🚨 DERNIÈRE LIGNE DROITE ! Rouge: {rouge_points}/{target} - Bleu: {bleu_points}/{target}"
   victory_announcement: "&6🏆 L'ÉQUIPE {team} REMPORTE L'EVENT ! 🏆"
   victory_objective: "&6🎊 Objectif atteint: {target} points !"
   victory_mvp: "&6🎯 MVP: {mvp} ({kills} kills)"
   
-  # Messages de mort et respawn
+  # Messages de mort et respawn - CORRIGÉS
   death_message: "&c💀 Vous avez été éliminé ! Respawn dans {delay} secondes..."
-  respawn_location: "&a📍 Téléportation au camp {team}"
-  take_kit: "&e🛡️ Reprendre un kit pour continuer le combat !"
+  respawn_location: "&a📍 Respawn au camp {team} !"
+  take_kit: "&e🛡️ &aTapez &e/event kits &apour reprendre un kit !"
   
   # Messages de kits
   kit_taken: "&a✓ Kit {kit} équipé avec succès !"
@@ -168,3 +220,13 @@ scoreboard:
   enabled: true
   title: "&6⚔️ EVENT PVP ⚔️"
   update_interval: 20  # ticks (1 seconde)
+
+# ===========================================
+# DEBUG ET DÉVELOPPEMENT
+# ===========================================
+debug:
+  enabled: true
+  log_glow_actions: true
+  log_respawn_actions: true
+  log_world_changes: true
+  log_teleportations: true

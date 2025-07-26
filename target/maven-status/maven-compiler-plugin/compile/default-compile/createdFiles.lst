@@ -32,5 +32,6 @@ org\novania\eventpvp\database\models\SessionStats.class
 org\novania\eventpvp\listeners\PlayerListener$1.class
 org\novania\eventpvp\kits\types\AssassinKit.class
 org\novania\eventpvp\database\models\SessionKill.class
+org\novania\eventpvp\commands\EventPVPCommands$1.class
 org\novania\eventpvp\enums\KitType.class
 org\novania\eventpvp\managers\ScoreboardManager.class

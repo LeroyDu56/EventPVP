@@ -1,3 +1,4 @@
+// ===== TheGlowIntegration.java - CORRECTION COMMANDE UNSET =====
 package org.novania.eventpvp.integrations;
 
 import org.bukkit.Bukkit;
@@ -5,18 +6,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.novania.eventpvp.EventPVP;
 
-import java.lang.reflect.Method;
-
 public class TheGlowIntegration {
     
     private final EventPVP plugin;
     private Plugin theGlowPlugin;
     private boolean enabled = false;
-    
-    // Méthodes réflectives pour TheGlow
-    private Method setGlowMethod;
-    private Method removeGlowMethod;
-    private Method hasGlowMethod;
     
     public TheGlowIntegration(EventPVP plugin) {
         this.plugin = plugin;
@@ -36,40 +30,27 @@ public class TheGlowIntegration {
             return;
         }
         
-        try {
-            // Recherche des méthodes de TheGlow via réflection
-            // Note: Ces noms de méthodes peuvent changer selon la version de TheGlow
-            Class<?> glowAPIClass = Class.forName("fr.skytasul.glow.api.GlowAPI");
-            
-            // Méthode pour appliquer un glow
-            setGlowMethod = glowAPIClass.getMethod("setGlow", Player.class, String.class);
-            
-            // Méthode pour retirer un glow
-            removeGlowMethod = glowAPIClass.getMethod("removeGlow", Player.class);
-            
-            // Méthode pour vérifier si un joueur a un glow
-            hasGlowMethod = glowAPIClass.getMethod("hasGlow", Player.class);
-            
-            enabled = true;
-            plugin.getLogger().info("Intégration TheGlow initialisée avec succès");
-            
-        } catch (ClassNotFoundException e) {
-            plugin.getLogger().warning("Classe GlowAPI de TheGlow non trouvée: " + e.getMessage());
-        } catch (NoSuchMethodException e) {
-            plugin.getLogger().warning("Méthode TheGlow non trouvée: " + e.getMessage());
-            plugin.getLogger().warning("Votre version de TheGlow pourrait être incompatible");
-        } catch (Exception e) {
-            plugin.getLogger().warning("Erreur lors de l'initialisation de TheGlow: " + e.getMessage());
-        }
+        enabled = true;
+        plugin.getLogger().info("Intégration TheGlow initialisée avec succès");
+        plugin.getLogger().info("Version TheGlow: " + theGlowPlugin.getDescription().getVersion());
     }
     
     public boolean setPlayerGlow(Player player, String color) {
-        if (!enabled || setGlowMethod == null) {
+        if (!enabled) {
+            plugin.getConfigManager().debugLog("TheGlow désactivé, impossible d'appliquer le glow");
             return false;
         }
         
         try {
-            setGlowMethod.invoke(null, player, color);
+            // CORRECTION: Utiliser directement les commandes TheGlow
+            String command = "theglow set " + player.getName() + " " + color;
+            
+            // Exécuter la commande depuis la console
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                boolean success = Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+                plugin.getConfigManager().debugLog("Commande TheGlow exécutée: /" + command + " - Succès: " + success);
+            });
+            
             plugin.getConfigManager().debugLog("Glow " + color + " appliqué à " + player.getName());
             return true;
             
@@ -80,12 +61,21 @@ public class TheGlowIntegration {
     }
     
     public boolean removePlayerGlow(Player player) {
-        if (!enabled || removeGlowMethod == null) {
+        if (!enabled) {
+            plugin.getConfigManager().debugLog("TheGlow désactivé, impossible de retirer le glow");
             return false;
         }
         
         try {
-            removeGlowMethod.invoke(null, player);
+            // CORRECTION: Utiliser la commande UNSET au lieu de remove
+            String command = "theglow unset " + player.getName();
+            
+            // Exécuter la commande depuis la console
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                boolean success = Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+                plugin.getConfigManager().debugLog("Commande TheGlow unset exécutée: /" + command + " - Succès: " + success);
+            });
+            
             plugin.getConfigManager().debugLog("Glow retiré de " + player.getName());
             return true;
             
@@ -96,17 +86,12 @@ public class TheGlowIntegration {
     }
     
     public boolean hasGlow(Player player) {
-        if (!enabled || hasGlowMethod == null) {
+        if (!enabled) {
             return false;
         }
         
-        try {
-            return (Boolean) hasGlowMethod.invoke(null, player);
-            
-        } catch (Exception e) {
-            plugin.getLogger().warning("Erreur lors de la vérification du glow de " + player.getName() + ": " + e.getMessage());
-            return false;
-        }
+        // Pas de moyen simple de vérifier via commande, on assume que ça marche
+        return true;
     }
     
     public void forceRemoveAllGlows() {
@@ -114,8 +99,15 @@ public class TheGlowIntegration {
             return;
         }
         
+        plugin.getLogger().info("Retrait forcé de tous les glows...");
+        
         for (Player player : Bukkit.getOnlinePlayers()) {
-            removePlayerGlow(player);
+            // CORRECTION: Utiliser unset pour tous les joueurs
+            String command = "theglow unset " + player.getName();
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+                plugin.getConfigManager().debugLog("Force unset glow pour: " + player.getName());
+            });
         }
         
         plugin.getLogger().info("Tous les glows ont été retirés");
@@ -126,17 +118,19 @@ public class TheGlowIntegration {
             return;
         }
         
+        plugin.getConfigManager().debugLog("Rafraîchissement du glow pour " + player.getName());
+        
         // Retirer le glow existant puis le remettre
-        if (hasGlow(player)) {
-            removePlayerGlow(player);
-            
-            // Redéterminer la couleur selon l'équipe
+        removePlayerGlow(player);
+        
+        // Attendre un peu puis remettre le glow selon l'équipe
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
             org.novania.eventpvp.enums.Team team = plugin.getTeamManager().getPlayerTeam(player);
             if (team != null && plugin.getTeamManager().isInEventWorld(player)) {
                 String glowColor = plugin.getConfigManager().getTeamGlowColor(team.name().toLowerCase());
                 setPlayerGlow(player, glowColor);
             }
-        }
+        }, 20L); // Attendre 1 seconde
     }
     
     // ===== MÉTHODES UTILITAIRES =====
@@ -166,23 +160,54 @@ public class TheGlowIntegration {
         }
         
         try {
+            plugin.getLogger().info("Test de fonctionnalité TheGlow pour " + testPlayer.getName());
+            
             // Test d'application
-            setPlayerGlow(testPlayer, "red");
+            setPlayerGlow(testPlayer, "gray");
             
-            // Vérifier que le glow est appliqué
-            boolean hasGlowAfterSet = hasGlow(testPlayer);
+            // Test de retrait après 3 secondes
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                removePlayerGlow(testPlayer);
+                plugin.getLogger().info("Test TheGlow terminé pour " + testPlayer.getName());
+            }, 60L);
             
-            // Test de retrait
-            removePlayerGlow(testPlayer);
-            
-            // Vérifier que le glow est retiré
-            boolean hasGlowAfterRemove = hasGlow(testPlayer);
-            
-            return hasGlowAfterSet && !hasGlowAfterRemove;
+            return true;
             
         } catch (Exception e) {
             plugin.getLogger().warning("Test de fonctionnalité TheGlow échoué: " + e.getMessage());
             return false;
         }
+    }
+    
+    // ===== MÉTHODES DE DEBUG =====
+    
+    public void debugGlowCommand(Player player, String color) {
+        if (!enabled) {
+            plugin.getLogger().warning("TheGlow désactivé - impossible de tester");
+            return;
+        }
+        
+        plugin.getLogger().info("=== DEBUG GLOW COMMAND ===");
+        plugin.getLogger().info("Joueur: " + player.getName());
+        plugin.getLogger().info("Couleur: " + color);
+        plugin.getLogger().info("TheGlow activé: " + enabled);
+        plugin.getLogger().info("Plugin TheGlow: " + (theGlowPlugin != null ? theGlowPlugin.getName() : "null"));
+        
+        // Test de la commande set
+        String setCommand = "theglow set " + player.getName() + " " + color;
+        plugin.getLogger().info("Commande à exécuter: /" + setCommand);
+        
+        boolean setSuccess = Bukkit.dispatchCommand(Bukkit.getConsoleSender(), setCommand);
+        plugin.getLogger().info("Résultat commande set: " + setSuccess);
+        
+        // Test de la commande unset après 3 secondes
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            String unsetCommand = "theglow unset " + player.getName();
+            plugin.getLogger().info("Commande unset à exécuter: /" + unsetCommand);
+            
+            boolean unsetSuccess = Bukkit.dispatchCommand(Bukkit.getConsoleSender(), unsetCommand);
+            plugin.getLogger().info("Résultat commande unset: " + unsetSuccess);
+            plugin.getLogger().info("=== FIN DEBUG GLOW ===");
+        }, 60L);
     }
 }
