@@ -1,4 +1,4 @@
-// ===== TeamManager.java - VERSION COMPLÈTE CORRIGÉE =====
+// ===== TeamManager.java - GLOW TOTALEMENT CORRIGÉ =====
 package org.novania.eventpvp.managers;
 
 import java.util.HashMap;
@@ -64,7 +64,7 @@ public class TeamManager {
         player.sendMessage(configManager.getPrefix() + 
             configManager.getMessage("team_assigned", "team", teamColor + teamName));
         
-        // CORRECTION: Téléporter puis appliquer le glow avec délais appropriés
+        // GLOW: Application immédiate si dans le monde event
         if (isInEventWorld(player)) {
             // Dans le monde event : téléporter puis glow
             teleportToTeamWarpWithGlow(player, team);
@@ -78,7 +78,7 @@ public class TeamManager {
         configManager.debugLog("Joueur " + player.getName() + " assigné à l'équipe " + team);
     }
     
-    // NOUVELLE méthode pour téléporter et appliquer le glow
+    // CORRECTION: Méthode pour téléporter et appliquer le glow
     private void teleportToTeamWarpWithGlow(Player player, Team team) {
         String warpName = configManager.getTeamWarp(team.name().toLowerCase());
         
@@ -98,72 +98,14 @@ public class TeamManager {
                 // 2. Attendre que la téléportation soit terminée puis appliquer le glow
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
                     configManager.debugLog("Application du glow après téléportation pour " + player.getName());
-                    forceApplyGlow(player, team);
+                    applyGlowWithRetry(player, team, 0);
                 }, 40L); // 2 secondes après la téléportation
             } else {
                 // Si la téléportation échoue, essayer quand même le glow
                 player.sendMessage(configManager.getPrefix() + "§cErreur de téléportation au warp!");
-                forceApplyGlow(player, team);
+                applyGlowWithRetry(player, team, 0);
             }
         }, 10L); // 0.5 seconde de délai initial
-    }
-    
-    // NOUVELLE méthode pour forcer l'application du glow
-    private void forceApplyGlow(Player player, Team team) {
-        if (!configManager.isAutoGlow() || !glowIntegration.isEnabled()) {
-            configManager.debugLog("Glow désactivé, abandon");
-            return;
-        }
-        
-        if (player.hasPermission("eventpvp.glow.immune")) {
-            configManager.debugLog("Joueur immunisé contre le glow");
-            return;
-        }
-        
-        String glowColor = configManager.getTeamGlowColor(team.name().toLowerCase());
-        
-        configManager.debugLog("=== FORCE APPLY GLOW ===");
-        configManager.debugLog("Joueur: " + player.getName());
-        configManager.debugLog("Couleur: " + glowColor);
-        configManager.debugLog("Dans monde event: " + isInEventWorld(player));
-        
-        // Tentative immédiate
-        attemptForceGlow(player, glowColor, team, 0);
-    }
-    
-    // Méthode pour forcer le glow avec plusieurs tentatives
-    private void attemptForceGlow(Player player, String glowColor, Team team, int attempt) {
-        if (attempt >= 3) {
-            plugin.getLogger().warning("ÉCHEC: Impossible d'appliquer le glow à " + player.getName() + " après 3 tentatives forcées");
-            return;
-        }
-        
-        configManager.debugLog("Tentative forcée #" + (attempt + 1) + " pour " + player.getName());
-        
-        // Commande directe TheGlow
-        String glowCommand = "theglow set " + player.getName() + " " + glowColor;
-        boolean directSuccess = Bukkit.dispatchCommand(Bukkit.getConsoleSender(), glowCommand);
-        
-        configManager.debugLog("Commande directe: /" + glowCommand + " - Succès: " + directSuccess);
-        
-        if (directSuccess) {
-            // Succès - envoyer le message
-            String messageKey = "glow_applied_" + team.name().toLowerCase();
-            String message = configManager.getMessage(messageKey);
-            if (message.contains("Message introuvable")) {
-                message = "§aGlow " + glowColor + " appliqué !";
-            }
-            player.sendMessage(configManager.getPrefix() + message);
-            
-            configManager.debugLog("✅ Glow " + glowColor + " appliqué avec succès à " + player.getName());
-        } else {
-            // Échec - réessayer
-            configManager.debugLog("❌ Échec tentative #" + (attempt + 1) + ", nouvel essai dans 1 seconde");
-            
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                attemptForceGlow(player, glowColor, team, attempt + 1);
-            }, 20L); // Attendre 1 seconde avant de réessayer
-        }
     }
     
     public void removePlayerFromTeam(Player player) {
@@ -230,7 +172,7 @@ public class TeamManager {
             attachment.setPermission("eventpvp.spectate", true);
         }
         
-        // CORRECTION: Donner permission multiverse aux admins sans équipe
+        // Donner permission multiverse aux admins sans équipe
         if (player.hasPermission("eventpvp.admin.bypass")) {
             attachment.setPermission("multiverse.teleport.self.event", true);
         }
@@ -248,9 +190,12 @@ public class TeamManager {
         }
     }
     
-    // ===== GESTION DU GLOW =====
+    // ===== GESTION DU GLOW - CORRECTION TOTALE =====
     
-    public void applyTeamGlow(Player player, Team team) {
+    /**
+     * NOUVELLE MÉTHODE: Application du glow avec retry automatique
+     */
+    public void applyGlowWithRetry(Player player, Team team, int attempt) {
         if (!configManager.isAutoGlow() || !glowIntegration.isEnabled()) {
             configManager.debugLog("Glow désactivé ou TheGlow non disponible");
             return;
@@ -262,46 +207,74 @@ public class TeamManager {
             return;
         }
         
-        configManager.debugLog("=== APPLICATION GLOW ===");
-        configManager.debugLog("Joueur: " + player.getName());
-        configManager.debugLog("Équipe: " + team);
-        configManager.debugLog("Dans monde event: " + isInEventWorld(player));
-        
-        String glowColor = configManager.getTeamGlowColor(team.name().toLowerCase());
-        configManager.debugLog("Couleur glow: " + glowColor);
-        
-        // CORRECTION: Appliquer le glow avec délai et retry
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            attemptGlowApplication(player, glowColor, team, 0);
-        }, 10L); // Réduire le délai à 0.5 seconde
-    }
-    
-    private void attemptGlowApplication(Player player, String glowColor, Team team, int attempt) {
-        if (attempt >= 5) { // CORRECTION: Plus de tentatives
-            plugin.getLogger().warning("Impossible d'appliquer le glow à " + player.getName() + " après 5 tentatives");
+        // Maximum 5 tentatives
+        if (attempt >= 5) {
+            plugin.getLogger().warning("ÉCHEC DÉFINITIF: Impossible d'appliquer le glow à " + player.getName() + " après 5 tentatives");
+            player.sendMessage(configManager.getPrefix() + "§c⚠️ Impossible d'appliquer l'effet glow. Contactez un admin.");
             return;
         }
         
-        configManager.debugLog("Tentative glow #" + (attempt + 1) + " pour " + player.getName());
+        String glowColor = configManager.getTeamGlowColor(team.name().toLowerCase());
         
-        if (glowIntegration.setPlayerGlow(player, glowColor)) {
-            // Message selon l'équipe
-            String messageKey = "glow_applied_" + team.name().toLowerCase();
-            String message = configManager.getMessage(messageKey);
-            if (message.contains("Message introuvable")) {
-                message = configManager.getMessage("glow_applied_rouge")
-                    .replace("rouge", configManager.getTeamDisplayName(team.name().toLowerCase()))
-                    .replace("🔴", getTeamEmoji(team));
-            }
-            player.sendMessage(configManager.getPrefix() + message);
+        configManager.debugLog("=== APPLICATION GLOW AVEC RETRY ===");
+        configManager.debugLog("Joueur: " + player.getName());
+        configManager.debugLog("Équipe: " + team);
+        configManager.debugLog("Couleur: " + glowColor);
+        configManager.debugLog("Tentative: " + (attempt + 1) + "/5");
+        configManager.debugLog("Dans monde event: " + isInEventWorld(player));
+        
+        // COMMANDE DIRECTE TheGlow - MÉTHODE GARANTIE
+        String glowCommand = "theglow set " + player.getName() + " " + glowColor;
+        
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            configManager.debugLog("Exécution commande: /" + glowCommand);
+            boolean success = Bukkit.dispatchCommand(Bukkit.getConsoleSender(), glowCommand);
             
-            configManager.debugLog("Glow " + glowColor + " appliqué à " + player.getName() + " (tentative " + (attempt + 1) + ")");
-        } else {
-            // Réessayer après un délai
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                attemptGlowApplication(player, glowColor, team, attempt + 1);
-            }, 20L); // Attendre 1 seconde entre les tentatives
+            configManager.debugLog("Résultat commande: " + success);
+            
+            if (success) {
+                // Succès - Message de confirmation
+                sendGlowConfirmationMessage(player, team);
+                configManager.debugLog("✅ SUCCÈS - Glow " + glowColor + " appliqué à " + player.getName());
+            } else {
+                // Échec - Programmer un retry
+                configManager.debugLog("❌ ÉCHEC - Retry dans 2 secondes...");
+                
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    applyGlowWithRetry(player, team, attempt + 1);
+                }, 40L); // 2 secondes d'attente
+            }
+        });
+    }
+    
+    /**
+     * NOUVELLE MÉTHODE: Message de confirmation selon l'équipe
+     */
+    private void sendGlowConfirmationMessage(Player player, Team team) {
+        String messageKey = "glow_applied_" + team.name().toLowerCase();
+        String message = configManager.getMessage(messageKey);
+        
+        // Fallback si message pas trouvé
+        if (message.contains("Message introuvable")) {
+            String teamName = configManager.getTeamDisplayName(team.name().toLowerCase());
+            String teamColor = configManager.getTeamColorCode(team.name().toLowerCase());
+            String emoji = getTeamEmoji(team);
+            message = teamColor + emoji + " Glow " + teamName.toLowerCase() + " appliqué - Prêt au combat !";
         }
+        
+        player.sendMessage(configManager.getPrefix() + message);
+    }
+    
+    /**
+     * ANCIENNE MÉTHODE MODIFIÉE: Plus simple, utilise la nouvelle méthode
+     */
+    public void applyTeamGlow(Player player, Team team) {
+        configManager.debugLog("=== APPEL applyTeamGlow ===");
+        configManager.debugLog("Joueur: " + player.getName());
+        configManager.debugLog("Équipe: " + team);
+        
+        // Utiliser la nouvelle méthode avec retry
+        applyGlowWithRetry(player, team, 0);
     }
     
     public void removeGlow(Player player) {
@@ -334,6 +307,9 @@ public class TeamManager {
         return inEventWorld;
     }
     
+    /**
+     * CORRECTION ENTRÉE MONDE EVENT: Glow immédiat
+     */
     public void handlePlayerEnterEventWorld(Player player) {
         Team team = getPlayerTeam(player);
         
@@ -341,7 +317,7 @@ public class TeamManager {
         configManager.debugLog("Joueur: " + player.getName());
         configManager.debugLog("Équipe: " + (team != null ? team.toString() : "Aucune"));
         
-        // CORRECTION: Permettre aux admins sans équipe d'entrer
+        // Permettre aux admins sans équipe d'entrer
         if (team == null && !player.hasPermission("eventpvp.admin.bypass")) {
             // Joueur sans équipe - pas d'accès
             player.sendMessage(configManager.getPrefix() + configManager.getMessage("no_access"));
@@ -360,10 +336,9 @@ public class TeamManager {
                 player.setGameMode(GameMode.SURVIVAL);
             }
             
-            // CORRECTION: Appliquer le glow selon l'équipe avec délai plus court
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                applyTeamGlow(player, team);
-            }, 20L); // 1 seconde après l'entrée
+            // CORRECTION: Application immédiate du glow
+            configManager.debugLog("Application immédiate du glow pour " + player.getName());
+            applyGlowWithRetry(player, team, 0);
         }
         
         configManager.debugLog("Joueur " + player.getName() + " est entré dans le monde event avec l'équipe " + team);
@@ -387,12 +362,9 @@ public class TeamManager {
     // ===== TÉLÉPORTATION AUX WARPS =====
     
     public void teleportToTeamWarp(Player player, Team team) {
-        // Cette méthode est appelée depuis d'autres endroits (comme le respawn)
-        // On utilise l'ancienne logique mais avec glow amélioré
-        
         String warpName = configManager.getTeamWarp(team.name().toLowerCase());
         
-        configManager.debugLog("=== TÉLÉPORTATION WARP CLASSIQUE ===");
+        configManager.debugLog("=== TÉLÉPORTATION WARP STANDARD ===");
         configManager.debugLog("Joueur: " + player.getName());
         configManager.debugLog("Équipe: " + team);
         configManager.debugLog("Warp: " + warpName);
@@ -404,9 +376,9 @@ public class TeamManager {
             configManager.debugLog("Commande warp exécutée: /" + command + " - Succès: " + success);
             
             if (success) {
-                // Appliquer le glow après téléportation (délai plus court pour le respawn)
+                // Appliquer le glow après téléportation
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    applyTeamGlow(player, team);
+                    applyGlowWithRetry(player, team, 0);
                 }, 20L); // 1 seconde après la téléportation
             } else {
                 plugin.getLogger().warning("Échec de la téléportation au warp " + warpName + " pour " + player.getName());
@@ -415,8 +387,9 @@ public class TeamManager {
         }, 10L);
     }
     
-    // ===== MÉTHODE POUR RÉAPPLIQUER LE GLOW APRÈS RESPAWN =====
-    
+    /**
+     * NOUVELLE MÉTHODE: Gestion complète du respawn avec glow
+     */
     public void handlePlayerRespawn(Player player) {
         Team team = getPlayerTeam(player);
         
@@ -425,10 +398,10 @@ public class TeamManager {
         configManager.debugLog("Équipe: " + (team != null ? team.toString() : "Aucune"));
         
         if (team != null && isInEventWorld(player)) {
-            // CORRECTION: Attendre plus longtemps après le respawn pour réappliquer le glow
+            // Attendre que le respawn soit complètement terminé
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                configManager.debugLog("Réapplication du glow après respawn pour " + player.getName());
-                applyTeamGlow(player, team);
+                configManager.debugLog("Application du glow après respawn pour " + player.getName());
+                applyGlowWithRetry(player, team, 0);
             }, 60L); // 3 secondes après le respawn
         }
     }
@@ -436,7 +409,7 @@ public class TeamManager {
     // ===== VALIDATION DES WARPS =====
     
     public boolean validateWarpAccess(Player player, String warpName) {
-        // CORRECTION: Admins peuvent accéder aux warps même sans équipe
+        // Admins peuvent accéder aux warps même sans équipe
         if (player.hasPermission("eventpvp.admin.bypass")) {
             return true;
         }
@@ -493,7 +466,7 @@ public class TeamManager {
             return false;
         }
         
-        // CORRECTION: Vérifier le bypass ET empêcher team kill
+        // Vérifier le bypass ET empêcher team kill
         if (attackerTeam == victimTeam) {
             if (!attacker.hasPermission("eventpvp.teamkill.bypass")) {
                 attacker.sendMessage(configManager.getPrefix() + configManager.getMessage("team_kill_denied"));
