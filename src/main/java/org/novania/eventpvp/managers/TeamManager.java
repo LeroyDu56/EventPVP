@@ -1,4 +1,4 @@
-// ===== TeamManager.java - GLOW TOTALEMENT CORRIGÉ =====
+// ===== TeamManager.java - CORRECTION RÉASSIGNATION ÉQUIPE =====
 package org.novania.eventpvp.managers;
 
 import java.util.HashMap;
@@ -30,19 +30,32 @@ public class TeamManager {
         this.glowIntegration = glowIntegration;
     }
     
-    // ===== GESTION DES ÉQUIPES =====
+    // ===== GESTION DES ÉQUIPES - CORRECTION RÉASSIGNATION =====
     
     public void assignPlayerToTeam(Player player, Team team) {
         UUID uuid = player.getUniqueId();
         Team oldTeam = playerTeams.get(uuid);
         
-        // Retirer l'ancienne équipe si elle existe
+        configManager.debugLog("=== ASSIGNATION ÉQUIPE ===");
+        configManager.debugLog("Joueur: " + player.getName());
+        configManager.debugLog("Ancienne équipe: " + (oldTeam != null ? oldTeam.toString() : "Aucune"));
+        configManager.debugLog("Nouvelle équipe: " + team.toString());
+        configManager.debugLog("Event actif: " + plugin.getEventManager().isEventActive());
+        
+        // CORRECTION: Retirer proprement l'ancienne équipe
         if (oldTeam != null) {
-            removePlayerFromTeam(player);
+            configManager.debugLog("Retrait de l'ancienne équipe " + oldTeam);
+            removePlayerFromTeamComplete(player, oldTeam);
         }
         
         // Assigner la nouvelle équipe
         playerTeams.put(uuid, team);
+        
+        // CORRECTION: Gérer l'event actif - Mettre à jour/Ajouter dans la base
+        if (plugin.getEventManager().isEventActive()) {
+            configManager.debugLog("Event actif - Mise à jour de la session");
+            updatePlayerInActiveSession(player, team, oldTeam);
+        }
         
         // Donner les permissions de l'équipe
         giveTeamPermissions(player, team);
@@ -61,8 +74,15 @@ public class TeamManager {
         // Message de confirmation
         String teamName = configManager.getTeamDisplayName(team.name().toLowerCase());
         String teamColor = configManager.getTeamColorCode(team.name().toLowerCase());
-        player.sendMessage(configManager.getPrefix() + 
-            configManager.getMessage("team_assigned", "team", teamColor + teamName));
+        
+        if (oldTeam != null) {
+            String oldTeamName = configManager.getTeamDisplayName(oldTeam.name().toLowerCase());
+            player.sendMessage(configManager.getPrefix() + 
+                "§eTransféré de l'équipe §c" + oldTeamName + " §evers " + teamColor + teamName + " §e!");
+        } else {
+            player.sendMessage(configManager.getPrefix() + 
+                configManager.getMessage("team_assigned", "team", teamColor + teamName));
+        }
         
         // GLOW: Application immédiate si dans le monde event
         if (isInEventWorld(player)) {
@@ -75,8 +95,83 @@ public class TeamManager {
                 "§eUtilisez §6/warp " + warpName + " §epour aller à votre base !");
         }
         
-        configManager.debugLog("Joueur " + player.getName() + " assigné à l'équipe " + team);
+        configManager.debugLog("✅ Joueur " + player.getName() + " assigné à l'équipe " + team);
     }
+    
+    // CORRECTION: Nouvelle méthode pour retirer complètement un joueur d'une équipe
+    private void removePlayerFromTeamComplete(Player player, Team oldTeam) {
+        UUID uuid = player.getUniqueId();
+        
+        configManager.debugLog("=== RETRAIT ÉQUIPE COMPLET ===");
+        configManager.debugLog("Joueur: " + player.getName());
+        configManager.debugLog("Équipe à retirer: " + oldTeam);
+        
+        // 1. Retirer des permissions
+        removeTeamPermissions(player);
+        
+        // 2. Retirer le glow
+        removeGlow(player);
+        
+        // 3. CORRECTION: Si event actif, nettoyer les données de session
+        if (plugin.getEventManager().isEventActive()) {
+            configManager.debugLog("Nettoyage des données de session pour l'ancienne équipe");
+            // Marquer comme ayant quitté l'ancienne équipe dans la DB
+            plugin.getDatabaseManager().markPlayerLeftSession(uuid.toString());
+        }
+        
+        // 4. Remettre en survival si c'était spectator
+        if (oldTeam == Team.SPECTATOR && isInEventWorld(player)) {
+            player.setGameMode(GameMode.SURVIVAL);
+        }
+        
+        configManager.debugLog("✅ Joueur " + player.getName() + " retiré complètement de l'équipe " + oldTeam);
+    }
+    
+    // CORRECTION: Nouvelle méthode pour gérer les sessions actives lors des changements d'équipe
+    private void updatePlayerInActiveSession(Player player, Team newTeam, Team oldTeam) {
+        String playerUuid = player.getUniqueId().toString();
+        String playerName = player.getName();
+        String newTeamName = newTeam.name().toLowerCase();
+        
+        configManager.debugLog("=== MISE À JOUR SESSION ACTIVE ===");
+        configManager.debugLog("Joueur: " + playerName);
+        configManager.debugLog("Ancienne équipe: " + (oldTeam != null ? oldTeam.toString() : "Aucune"));
+        configManager.debugLog("Nouvelle équipe: " + newTeam.toString());
+        
+        if (oldTeam != null) {
+            // Le joueur change d'équipe pendant une session active
+            configManager.debugLog("Changement d'équipe pendant session active");
+            
+            // CORRECTION: Réinitialiser les stats pour éviter les doublons
+            plugin.getDatabaseManager().resetPlayerSessionStats(playerUuid);
+            
+            // Ajouter avec la nouvelle équipe
+            plugin.getDatabaseManager().addPlayerToSession(playerUuid, playerName, newTeamName);
+            
+            configManager.debugLog("Stats reset et joueur re-ajouté avec nouvelle équipe");
+        } else {
+            // Nouveau joueur dans la session
+            configManager.debugLog("Nouveau joueur ajouté à la session");
+            plugin.getDatabaseManager().addPlayerToSession(playerUuid, playerName, newTeamName);
+        }
+    }
+    
+    public void removePlayerFromTeam(Player player) {
+        UUID uuid = player.getUniqueId();
+        Team team = playerTeams.remove(uuid);
+        
+        if (team != null) {
+            configManager.debugLog("=== RETRAIT ÉQUIPE STANDARD ===");
+            configManager.debugLog("Joueur: " + player.getName());
+            configManager.debugLog("Équipe: " + team);
+            
+            removePlayerFromTeamComplete(player, team);
+            
+            player.sendMessage(configManager.getPrefix() + "§cVous avez été retiré de votre équipe.");
+        }
+    }
+    
+    // ===== MÉTHODES GLOW - INCHANGÉES =====
     
     // CORRECTION: Méthode pour téléporter et appliquer le glow
     private void teleportToTeamWarpWithGlow(Player player, Team team) {
@@ -107,90 +202,6 @@ public class TeamManager {
             }
         }, 10L); // 0.5 seconde de délai initial
     }
-    
-    public void removePlayerFromTeam(Player player) {
-        UUID uuid = player.getUniqueId();
-        Team team = playerTeams.remove(uuid);
-        
-        if (team != null) {
-            // Retirer les permissions
-            removeTeamPermissions(player);
-            
-            // Retirer le glow
-            removeGlow(player);
-            
-            // Remettre en survival si c'était spectator
-            if (team == Team.SPECTATOR && isInEventWorld(player)) {
-                player.setGameMode(GameMode.SURVIVAL);
-            }
-            
-            configManager.debugLog("Joueur " + player.getName() + " retiré de l'équipe " + team);
-        }
-    }
-    
-    public Team getPlayerTeam(Player player) {
-        return playerTeams.get(player.getUniqueId());
-    }
-    
-    public boolean hasTeam(Player player) {
-        return playerTeams.containsKey(player.getUniqueId());
-    }
-    
-    public boolean isInTeam(Player player, Team team) {
-        return team.equals(getPlayerTeam(player));
-    }
-    
-    public boolean canAccessWarp(Player player, String warpName) {
-        Team team = getPlayerTeam(player);
-        if (team == null) return false;
-        
-        String teamWarp = configManager.getTeamWarp(team.name().toLowerCase());
-        return teamWarp.equalsIgnoreCase(warpName);
-    }
-    
-    // ===== GESTION DES PERMISSIONS =====
-    
-    private void giveTeamPermissions(Player player, Team team) {
-        // Retirer les anciennes permissions d'abord
-        removeTeamPermissions(player);
-        
-        // Créer un nouveau attachment de permissions
-        PermissionAttachment attachment = player.addAttachment(plugin);
-        permissionAttachments.put(player.getUniqueId(), attachment);
-        
-        // Donner la permission de l'équipe
-        String teamPermission = configManager.getTeamPermission(team.name().toLowerCase());
-        attachment.setPermission(teamPermission, true);
-        
-        // Permissions générales de participation
-        attachment.setPermission("eventpvp.participate", true);
-        attachment.setPermission("eventpvp.kits.use", true);
-        attachment.setPermission("eventpvp.stats.view", true);
-        
-        // Permissions spéciales pour les spectateurs
-        if (team == Team.SPECTATOR) {
-            attachment.setPermission("eventpvp.spectate", true);
-        }
-        
-        // Donner permission multiverse aux admins sans équipe
-        if (player.hasPermission("eventpvp.admin.bypass")) {
-            attachment.setPermission("multiverse.teleport.self.event", true);
-        }
-        
-        configManager.debugLog("Permissions données à " + player.getName() + " pour l'équipe " + team);
-    }
-    
-    private void removeTeamPermissions(Player player) {
-        UUID uuid = player.getUniqueId();
-        PermissionAttachment attachment = permissionAttachments.remove(uuid);
-        
-        if (attachment != null) {
-            player.removeAttachment(attachment);
-            configManager.debugLog("Permissions retirées de " + player.getName());
-        }
-    }
-    
-    // ===== GESTION DU GLOW - CORRECTION TOTALE =====
     
     /**
      * NOUVELLE MÉTHODE: Application du glow avec retry automatique
@@ -298,7 +309,71 @@ public class TeamManager {
         }
     }
     
-    // ===== GESTION DU MONDE EVENT =====
+    // ===== AUTRES MÉTHODES INCHANGÉES =====
+    
+    public Team getPlayerTeam(Player player) {
+        return playerTeams.get(player.getUniqueId());
+    }
+    
+    public boolean hasTeam(Player player) {
+        return playerTeams.containsKey(player.getUniqueId());
+    }
+    
+    public boolean isInTeam(Player player, Team team) {
+        return team.equals(getPlayerTeam(player));
+    }
+    
+    public boolean canAccessWarp(Player player, String warpName) {
+        Team team = getPlayerTeam(player);
+        if (team == null) return false;
+        
+        String teamWarp = configManager.getTeamWarp(team.name().toLowerCase());
+        return teamWarp.equalsIgnoreCase(warpName);
+    }
+    
+    // ===== GESTION DES PERMISSIONS - INCHANGÉE =====
+    
+    private void giveTeamPermissions(Player player, Team team) {
+        // Retirer les anciennes permissions d'abord
+        removeTeamPermissions(player);
+        
+        // Créer un nouveau attachment de permissions
+        PermissionAttachment attachment = player.addAttachment(plugin);
+        permissionAttachments.put(player.getUniqueId(), attachment);
+        
+        // Donner la permission de l'équipe
+        String teamPermission = configManager.getTeamPermission(team.name().toLowerCase());
+        attachment.setPermission(teamPermission, true);
+        
+        // Permissions générales de participation
+        attachment.setPermission("eventpvp.participate", true);
+        attachment.setPermission("eventpvp.kits.use", true);
+        attachment.setPermission("eventpvp.stats.view", true);
+        
+        // Permissions spéciales pour les spectateurs
+        if (team == Team.SPECTATOR) {
+            attachment.setPermission("eventpvp.spectate", true);
+        }
+        
+        // Donner permission multiverse aux admins sans équipe
+        if (player.hasPermission("eventpvp.admin.bypass")) {
+            attachment.setPermission("multiverse.teleport.self.event", true);
+        }
+        
+        configManager.debugLog("Permissions données à " + player.getName() + " pour l'équipe " + team);
+    }
+    
+    private void removeTeamPermissions(Player player) {
+        UUID uuid = player.getUniqueId();
+        PermissionAttachment attachment = permissionAttachments.remove(uuid);
+        
+        if (attachment != null) {
+            player.removeAttachment(attachment);
+            configManager.debugLog("Permissions retirées de " + player.getName());
+        }
+    }
+    
+    // ===== GESTION DU MONDE EVENT - INCHANGÉE =====
     
     public boolean isInEventWorld(Player player) {
         boolean inEventWorld = player.getWorld().getName().equals(configManager.getWorldName());
@@ -359,7 +434,7 @@ public class TeamManager {
         configManager.debugLog("Joueur " + player.getName() + " a quitté le monde event");
     }
     
-    // ===== TÉLÉPORTATION AUX WARPS =====
+    // ===== TÉLÉPORTATION AUX WARPS - INCHANGÉE =====
     
     public void teleportToTeamWarp(Player player, Team team) {
         String warpName = configManager.getTeamWarp(team.name().toLowerCase());
@@ -406,7 +481,7 @@ public class TeamManager {
         }
     }
     
-    // ===== VALIDATION DES WARPS =====
+    // ===== VALIDATION DES WARPS - INCHANGÉE =====
     
     public boolean validateWarpAccess(Player player, String warpName) {
         // Admins peuvent accéder aux warps même sans équipe
@@ -445,7 +520,7 @@ public class TeamManager {
         return warpName.toLowerCase().startsWith("event");
     }
     
-    // ===== COMBAT ET PVP =====
+    // ===== COMBAT ET PVP - INCHANGÉ =====
     
     public boolean canAttack(Player attacker, Player victim) {
         // Vérifier si on est dans le monde event
@@ -477,7 +552,7 @@ public class TeamManager {
         return true;
     }
     
-    // ===== STATISTIQUES D'ÉQUIPE =====
+    // ===== STATISTIQUES D'ÉQUIPE - INCHANGÉES =====
     
     public int getTeamPlayerCount(Team team) {
         return (int) playerTeams.values().stream()
@@ -502,7 +577,7 @@ public class TeamManager {
         return onlinePlayers - playerTeams.size();
     }
     
-    // ===== NETTOYAGE =====
+    // ===== NETTOYAGE - INCHANGÉ =====
     
     public void cleanupOfflinePlayers() {
         playerTeams.entrySet().removeIf(entry -> {

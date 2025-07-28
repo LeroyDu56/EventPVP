@@ -1,5 +1,7 @@
-// ===== ArcherKit.java =====
+// ===== ArcherKit.java - CORRECTION POTIONS =====
 package org.novania.eventpvp.kits.types;
+
+import java.util.List;
 
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -8,8 +10,7 @@ import org.bukkit.inventory.ItemStack;
 import org.novania.eventpvp.enums.KitType;
 import org.novania.eventpvp.kits.Kit;
 import org.novania.eventpvp.utils.ItemBuilder;
-
-import java.util.List;
+import org.novania.eventpvp.utils.PotionUtils;
 
 public class ArcherKit extends Kit {
     
@@ -73,10 +74,10 @@ public class ArcherKit extends Kit {
                 .addEnchantment(Enchantment.UNBREAKING, 2)
                 .build();
         
-        // Consommables
+        // Consommables - CORRECTION: Vraies potions
         ItemStack arrows = new ItemStack(Material.ARROW, 1); // Une seule flèche (Infinity)
-        ItemStack food = new ItemStack(Material.COOKED_CHICKEN, 16);
-        ItemStack speedPotions = new ItemStack(Material.POTION, 2); // TODO: Potion de vitesse
+        ItemStack food = new ItemStack(Material.COOKED_CHICKEN, 64);
+        ItemStack speedPotions = PotionUtils.EventPotions.speedPotion(2); // 2 potions de vitesse
         
         // Équiper le joueur
         setArmor(player, helmet, chestplate, leggings, boots);

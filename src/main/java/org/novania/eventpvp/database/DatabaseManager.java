@@ -1,3 +1,4 @@
+// ===== DatabaseManager.java - CORRECTION GESTION ÉQUIPES =====
 package org.novania.eventpvp.database;
 
 import java.io.File;
@@ -84,6 +85,7 @@ public class DatabaseManager {
                 build_kit_used BOOLEAN DEFAULT FALSE,
                 join_time INTEGER DEFAULT 0,
                 leave_time INTEGER DEFAULT NULL,
+                is_active BOOLEAN DEFAULT TRUE,
                 FOREIGN KEY (session_id) REFERENCES event_sessions(session_id)
             )
         """;
@@ -114,6 +116,15 @@ public class DatabaseManager {
             stmt.executeUpdate("CREATE INDEX IF NOT EXISTS idx_session_stats_player ON session_stats(session_id, player_uuid)");
             stmt.executeUpdate("CREATE INDEX IF NOT EXISTS idx_session_kills_session ON session_kills(session_id)");
             stmt.executeUpdate("CREATE INDEX IF NOT EXISTS idx_sessions_status ON event_sessions(status)");
+            
+            // CORRECTION: Ajouter colonne is_active si elle n'existe pas
+            try {
+                stmt.executeUpdate("ALTER TABLE session_stats ADD COLUMN is_active BOOLEAN DEFAULT TRUE");
+                plugin.getLogger().info("Colonne 'is_active' ajoutée à la table session_stats");
+            } catch (SQLException e) {
+                // Colonne existe déjà, ignorer l'erreur
+                plugin.getLogger().info("Colonne 'is_active' existe déjà dans session_stats");
+            }
         }
     }
     
@@ -229,15 +240,35 @@ public class DatabaseManager {
         }
     }
     
-    // ===== GESTION DES STATISTIQUES JOUEURS =====
+    // ===== GESTION DES STATISTIQUES JOUEURS - CORRECTION =====
     
     public void addPlayerToSession(String playerUuid, String playerName, String team) {
         if (currentSessionId == -1) return;
         
+        // CORRECTION: D'abord vérifier si le joueur existe déjà dans cette session
+        String checkSql = "SELECT id FROM session_stats WHERE session_id = ? AND player_uuid = ? AND is_active = TRUE";
+        
+        try (PreparedStatement checkStmt = connection.prepareStatement(checkSql)) {
+            checkStmt.setInt(1, currentSessionId);
+            checkStmt.setString(2, playerUuid);
+            
+            try (ResultSet rs = checkStmt.executeQuery()) {
+                if (rs.next()) {
+                    // Le joueur existe déjà - faire un UPDATE de l'équipe
+                    plugin.getLogger().info("Joueur " + playerName + " existe déjà, mise à jour équipe vers " + team);
+                    updatePlayerTeamInSession(playerUuid, team);
+                    return;
+                }
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().warning("Erreur lors de la vérification du joueur existant: " + e.getMessage());
+        }
+        
+        // Le joueur n'existe pas, l'ajouter
         String sql = """
-            INSERT OR REPLACE INTO session_stats 
-            (session_id, player_uuid, player_name, team, join_time) 
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO session_stats 
+            (session_id, player_uuid, player_name, team, join_time, is_active) 
+            VALUES (?, ?, ?, ?, ?, TRUE)
         """;
         
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
@@ -248,16 +279,114 @@ public class DatabaseManager {
             stmt.setLong(5, System.currentTimeMillis());
             
             stmt.executeUpdate();
+            plugin.getLogger().info("Joueur " + playerName + " ajouté à la session avec équipe " + team);
             
         } catch (SQLException e) {
             plugin.getLogger().severe("Erreur lors de l'ajout du joueur à la session: " + e.getMessage());
         }
     }
     
+    // CORRECTION: Nouvelle méthode pour mettre à jour l'équipe d'un joueur dans la session
+    private void updatePlayerTeamInSession(String playerUuid, String newTeam) {
+        if (currentSessionId == -1) return;
+        
+        String sql = """
+            UPDATE session_stats 
+            SET team = ?, join_time = ?
+            WHERE session_id = ? AND player_uuid = ? AND is_active = TRUE
+        """;
+        
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, newTeam);
+            stmt.setLong(2, System.currentTimeMillis());
+            stmt.setInt(3, currentSessionId);
+            stmt.setString(4, playerUuid);
+            
+            int updated = stmt.executeUpdate();
+            if (updated > 0) {
+                plugin.getLogger().info("Équipe mise à jour pour le joueur UUID " + playerUuid + " vers " + newTeam);
+            } else {
+                plugin.getLogger().warning("Aucune ligne mise à jour pour le joueur UUID " + playerUuid);
+            }
+            
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Erreur lors de la mise à jour de l'équipe: " + e.getMessage());
+        }
+    }
+    
+    // CORRECTION: Nouvelle méthode pour marquer un joueur comme ayant quitté
+    public void markPlayerLeftSession(String playerUuid) {
+        if (currentSessionId == -1) return;
+        
+        String sql = """
+            UPDATE session_stats 
+            SET leave_time = ?, is_active = FALSE
+            WHERE session_id = ? AND player_uuid = ? AND is_active = TRUE
+        """;
+        
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setLong(1, System.currentTimeMillis());
+            stmt.setInt(2, currentSessionId);
+            stmt.setString(3, playerUuid);
+            
+            int updated = stmt.executeUpdate();
+            if (updated > 0) {
+                plugin.getLogger().info("Joueur UUID " + playerUuid + " marqué comme ayant quitté la session");
+            }
+            
+        } catch (SQLException e) {
+            plugin.getLogger().warning("Erreur lors du marquage de sortie: " + e.getMessage());
+        }
+    }
+    
+    // CORRECTION: Nouvelle méthode pour reset les stats d'un joueur spécifique
+    public void resetPlayerSessionStats(String playerUuid) {
+        if (currentSessionId == -1) return;
+        
+        plugin.getLogger().info("Reset des stats pour joueur UUID: " + playerUuid);
+        
+        // D'abord marquer l'ancienne entrée comme inactive
+        String deactivateSql = """
+            UPDATE session_stats 
+            SET is_active = FALSE, leave_time = ?
+            WHERE session_id = ? AND player_uuid = ? AND is_active = TRUE
+        """;
+        
+        try (PreparedStatement stmt = connection.prepareStatement(deactivateSql)) {
+            stmt.setLong(1, System.currentTimeMillis());
+            stmt.setInt(2, currentSessionId);
+            stmt.setString(3, playerUuid);
+            
+            int deactivated = stmt.executeUpdate();
+            plugin.getLogger().info("Entrées désactivées pour " + playerUuid + ": " + deactivated);
+            
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Erreur lors de la désactivation des stats: " + e.getMessage());
+        }
+        
+        // Supprimer les kills associés à ce joueur dans cette session
+        String deleteKillsSql = """
+            DELETE FROM session_kills 
+            WHERE session_id = ? AND (killer_uuid = ? OR victim_uuid = ?)
+        """;
+        
+        try (PreparedStatement stmt = connection.prepareStatement(deleteKillsSql)) {
+            stmt.setInt(1, currentSessionId);
+            stmt.setString(2, playerUuid);
+            stmt.setString(3, playerUuid);
+            
+            int deleted = stmt.executeUpdate();
+            plugin.getLogger().info("Kills supprimés pour " + playerUuid + ": " + deleted);
+            
+        } catch (SQLException e) {
+            plugin.getLogger().warning("Erreur lors de la suppression des kills: " + e.getMessage());
+        }
+    }
+    
     public void updatePlayerStats(String playerUuid, String statType, int value) {
         if (currentSessionId == -1) return;
         
-        String sql = "UPDATE session_stats SET " + statType + " = ? WHERE session_id = ? AND player_uuid = ?";
+        String sql = "UPDATE session_stats SET " + statType + " = ? WHERE session_id = ? AND player_uuid = ? AND is_active = TRUE";
         
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, value);
@@ -274,7 +403,7 @@ public class DatabaseManager {
     public void incrementPlayerStat(String playerUuid, String statType) {
         if (currentSessionId == -1) return;
         
-        String sql = "UPDATE session_stats SET " + statType + " = " + statType + " + 1 WHERE session_id = ? AND player_uuid = ?";
+        String sql = "UPDATE session_stats SET " + statType + " = " + statType + " + 1 WHERE session_id = ? AND player_uuid = ? AND is_active = TRUE";
         
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, currentSessionId);
@@ -290,7 +419,7 @@ public class DatabaseManager {
     public SessionStats getPlayerStats(String playerUuid) {
         if (currentSessionId == -1) return null;
         
-        String sql = "SELECT * FROM session_stats WHERE session_id = ? AND player_uuid = ?";
+        String sql = "SELECT * FROM session_stats WHERE session_id = ? AND player_uuid = ? AND is_active = TRUE";
         
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, currentSessionId);
@@ -312,7 +441,7 @@ public class DatabaseManager {
     public void setBuildKitUsed(String playerUuid, boolean used) {
         if (currentSessionId == -1) return;
         
-        String sql = "UPDATE session_stats SET build_kit_used = ? WHERE session_id = ? AND player_uuid = ?";
+        String sql = "UPDATE session_stats SET build_kit_used = ? WHERE session_id = ? AND player_uuid = ? AND is_active = TRUE";
         
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setBoolean(1, used);
@@ -329,7 +458,7 @@ public class DatabaseManager {
     public boolean hasBuildKitUsed(String playerUuid) {
         if (currentSessionId == -1) return false;
         
-        String sql = "SELECT build_kit_used FROM session_stats WHERE session_id = ? AND player_uuid = ?";
+        String sql = "SELECT build_kit_used FROM session_stats WHERE session_id = ? AND player_uuid = ? AND is_active = TRUE";
         
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, currentSessionId);
@@ -355,7 +484,7 @@ public class DatabaseManager {
             UPDATE session_stats SET 
             kills = 0, deaths = 0, damage_dealt = 0, damage_taken = 0,
             longest_killstreak = 0, current_killstreak = 0, assists = 0
-            WHERE session_id = ?
+            WHERE session_id = ? AND is_active = TRUE
         """;
         
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
@@ -377,7 +506,7 @@ public class DatabaseManager {
     public void resetBuildKits() {
         if (currentSessionId == -1) return;
         
-        String sql = "UPDATE session_stats SET build_kit_used = FALSE WHERE session_id = ?";
+        String sql = "UPDATE session_stats SET build_kit_used = FALSE WHERE session_id = ? AND is_active = TRUE";
         
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, currentSessionId);
@@ -440,7 +569,7 @@ public class DatabaseManager {
         return kills;
     }
     
-    // ===== LEADERBOARDS ET CLASSEMENTS =====
+    // ===== LEADERBOARDS ET CLASSEMENTS - CORRECTION =====
     
     public List<SessionStats> getTopKillers(int limit) {
         if (currentSessionId == -1) return new ArrayList<>();
@@ -448,7 +577,7 @@ public class DatabaseManager {
         List<SessionStats> topKillers = new ArrayList<>();
         String sql = """
             SELECT * FROM session_stats 
-            WHERE session_id = ? 
+            WHERE session_id = ? AND is_active = TRUE
             ORDER BY kills DESC, longest_killstreak DESC 
             LIMIT ?
         """;
@@ -476,7 +605,7 @@ public class DatabaseManager {
         List<SessionStats> topStreaks = new ArrayList<>();
         String sql = """
             SELECT * FROM session_stats 
-            WHERE session_id = ? 
+            WHERE session_id = ? AND is_active = TRUE
             ORDER BY longest_killstreak DESC, kills DESC 
             LIMIT ?
         """;
@@ -506,7 +635,7 @@ public class DatabaseManager {
             SELECT team, SUM(kills) as total_kills, SUM(deaths) as total_deaths, 
                    SUM(damage_dealt) as total_damage, COUNT(*) as player_count
             FROM session_stats 
-            WHERE session_id = ? 
+            WHERE session_id = ? AND is_active = TRUE
             GROUP BY team
         """;
         

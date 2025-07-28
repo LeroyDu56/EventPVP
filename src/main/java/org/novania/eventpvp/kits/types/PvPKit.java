@@ -1,16 +1,16 @@
-// ===== PvPKit.java =====
+// ===== PvPKit.java - CORRECTION POTIONS =====
 package org.novania.eventpvp.kits.types;
+
+import java.util.List;
 
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.potion.PotionType;
 import org.novania.eventpvp.enums.KitType;
 import org.novania.eventpvp.kits.Kit;
 import org.novania.eventpvp.utils.ItemBuilder;
-
-import java.util.List;
+import org.novania.eventpvp.utils.PotionUtils;
 
 public class PvPKit extends Kit {
     
@@ -70,10 +70,10 @@ public class PvPKit extends Kit {
                 .addEnchantment(Enchantment.UNBREAKING, 2)
                 .build();
         
-        // Consommables
+        // Consommables - CORRECTION: Vraies potions
         ItemStack arrows = new ItemStack(Material.ARROW, 64);
-        ItemStack food = new ItemStack(Material.COOKED_BEEF, 16);
-        ItemStack healingPotions = new ItemStack(Material.POTION, 3); // TODO: Configurer potion de soin
+        ItemStack food = new ItemStack(Material.COOKED_BEEF, 64);
+        ItemStack healingPotions = PotionUtils.EventPotions.healingPotion(3); // 3 potions de soin
         
         // Équiper le joueur
         setArmor(player, helmet, chestplate, leggings, boots);

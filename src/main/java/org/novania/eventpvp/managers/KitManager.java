@@ -1,14 +1,17 @@
 package org.novania.eventpvp.managers;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.bukkit.entity.Player;
 import org.novania.eventpvp.EventPVP;
 import org.novania.eventpvp.enums.KitType;
 import org.novania.eventpvp.kits.Kit;
-import org.novania.eventpvp.kits.types.*;
+import org.novania.eventpvp.kits.types.ArcherKit;
+import org.novania.eventpvp.kits.types.AssassinKit;
+import org.novania.eventpvp.kits.types.PvPKit;
+import org.novania.eventpvp.kits.types.TankKit;
 import org.novania.eventpvp.utils.SoundUtils;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class KitManager {
     
@@ -26,7 +29,6 @@ public class KitManager {
     
     private void registerKits() {
         // Enregistrer tous les kits disponibles
-        registerKit(new BuildKit());
         registerKit(new PvPKit());
         registerKit(new ArcherKit());
         registerKit(new TankKit());

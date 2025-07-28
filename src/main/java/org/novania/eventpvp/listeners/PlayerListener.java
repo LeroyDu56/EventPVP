@@ -1,4 +1,4 @@
-// ===== PlayerListener.java - VERSION COMPLÈTE CORRIGÉE AVEC GLOW =====
+// ===== PlayerListener.java - CORRECTION TEAMKILL COMPLET =====
 package org.novania.eventpvp.listeners;
 
 import org.bukkit.Bukkit;
@@ -6,6 +6,7 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -14,6 +15,7 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.projectiles.ProjectileSource;
 import org.novania.eventpvp.EventPVP;
 import org.novania.eventpvp.enums.Team;
 import org.novania.eventpvp.managers.EventManager;
@@ -59,24 +61,74 @@ public class PlayerListener implements Listener {
     
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-        // Vérifier que c'est PvP dans le monde event
-        if (!(event.getEntity() instanceof Player victim) || 
-            !(event.getDamager() instanceof Player attacker)) {
+        // Vérifier que la victime est un joueur
+        if (!(event.getEntity() instanceof Player victim)) {
+            return;
+        }
+        
+        // Déterminer l'attaquant selon le type de dégât
+        Player attacker = null;
+        
+        // CAS 1: Attaque directe (épée, main nue, etc.)
+        if (event.getDamager() instanceof Player directAttacker) {
+            attacker = directAttacker;
+            plugin.getConfigManager().debugLog("Attaque directe détectée: " + attacker.getName() + " -> " + victim.getName());
+        }
+        // CAS 2: Projectile (arc, trident, etc.)
+        else if (event.getDamager() instanceof Projectile projectile) {
+            ProjectileSource shooter = projectile.getShooter();
+            if (shooter instanceof Player projectileAttacker) {
+                attacker = projectileAttacker;
+                plugin.getConfigManager().debugLog("Attaque projectile détectée: " + attacker.getName() + " -> " + victim.getName() + 
+                    " (projectile: " + projectile.getType() + ")");
+            }
+        }
+        
+        // Si pas d'attaquant joueur identifié, laisser passer
+        if (attacker == null) {
             return;
         }
         
         // Vérifier si on est dans le monde event
         if (!teamManager.isInEventWorld(attacker) || !teamManager.isInEventWorld(victim)) {
+            plugin.getConfigManager().debugLog("Attaque hors monde event, ignorée");
             return;
         }
         
-        // Vérifier les règles de combat
+        // Vérifier les règles de combat avec le système unifié
         if (!teamManager.canAttack(attacker, victim)) {
             event.setCancelled(true);
-            // CORRECTION: Éviter la concaténation inefficace
-            String blockMessage = "[PvP Blocked] " + attacker.getName() + " tried to attack " + victim.getName();
-            plugin.getLogger().info(blockMessage);
+            
+            // Log détaillé pour debug
+            Team attackerTeam = teamManager.getPlayerTeam(attacker);
+            Team victimTeam = teamManager.getPlayerTeam(victim);
+            
+            plugin.getConfigManager().debugLog("=== ATTAQUE BLOQUÉE ===");
+            plugin.getConfigManager().debugLog("Attaquant: " + attacker.getName() + " (Équipe: " + attackerTeam + ")");
+            plugin.getConfigManager().debugLog("Victime: " + victim.getName() + " (Équipe: " + victimTeam + ")");
+            plugin.getConfigManager().debugLog("Type: " + (event.getDamager() instanceof Projectile ? "Projectile" : "Direct"));
+            plugin.getConfigManager().debugLog("Dégâts: " + event.getFinalDamage());
+            
+            // Message informatif à l'attaquant (éviter le spam)
+            if (attackerTeam == victimTeam) {
+                // C'est un teamkill tenté
+                long currentTime = System.currentTimeMillis();
+                String lastMessageKey = "lastTeamkillMessage:" + attacker.getUniqueId();
+                Long lastMessage = (Long) plugin.getConfig().get(lastMessageKey, 0L);
+                
+                // Envoyer message max 1 fois par 3 secondes pour éviter spam
+                if (currentTime - lastMessage > 3000) {
+                    attacker.sendMessage(plugin.getConfigManager().getPrefix() + 
+                        plugin.getConfigManager().getMessage("team_kill_denied"));
+                    plugin.getConfig().set(lastMessageKey, currentTime);
+                }
+            }
+            
+            return;
         }
+        
+        // Attaque autorisée, continuer le traitement normal
+        plugin.getConfigManager().debugLog("Attaque autorisée: " + attacker.getName() + " -> " + victim.getName());
     }
     
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -97,10 +149,23 @@ public class PlayerListener implements Listener {
         // Gérer la mort dans l'event
         eventManager.handlePlayerDeath(victim);
         
-        // Vérifier qu'il y a bien un tueur joueur
+        // CORRECTION: Gestion améliorée du killer
         if (killer != null && teamManager.isInEventWorld(killer)) {
-            // Gérer le kill dans le système d'event
-            eventManager.handlePlayerKill(killer, victim);
+            // Vérifier que c'est un kill valide (pas de teamkill)
+            Team killerTeam = teamManager.getPlayerTeam(killer);
+            Team victimTeam = teamManager.getPlayerTeam(victim);
+            
+            if (killerTeam != null && victimTeam != null && killerTeam != victimTeam) {
+                // Kill valide entre équipes ennemies
+                eventManager.handlePlayerKill(killer, victim);
+                plugin.getConfigManager().debugLog("Kill valide enregistré: " + killer.getName() + " -> " + victim.getName());
+            } else if (killerTeam == victimTeam) {
+                // Teamkill - ne pas compter
+                plugin.getConfigManager().debugLog("Teamkill détecté et ignoré: " + killer.getName() + " -> " + victim.getName());
+            }
+        } else {
+            // Mort sans killer ou killer hors monde event
+            plugin.getConfigManager().debugLog("Mort sans killer valide: " + victim.getName());
         }
         
         plugin.getConfigManager().debugLog("Joueur " + victim.getName() + " mort dans le monde event");

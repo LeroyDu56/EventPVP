@@ -1,5 +1,7 @@
+org\novania\eventpvp\utils\PotionUtils.class
 org\novania\eventpvp\integrations\TheGlowIntegration.class
 org\novania\eventpvp\managers\TeamManager$1.class
+org\novania\eventpvp\utils\PotionUtils$EventPotions.class
 org\novania\eventpvp\enums\Team.class
 org\novania\eventpvp\managers\EventManager.class
 org\novania\eventpvp\guis\StatsGui.class

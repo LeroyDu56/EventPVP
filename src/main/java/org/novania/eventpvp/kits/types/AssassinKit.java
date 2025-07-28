@@ -1,5 +1,7 @@
-// ===== AssassinKit.java =====
+// ===== AssassinKit.java - CORRECTION POTIONS =====
 package org.novania.eventpvp.kits.types;
+
+import java.util.List;
 
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -8,8 +10,7 @@ import org.bukkit.inventory.ItemStack;
 import org.novania.eventpvp.enums.KitType;
 import org.novania.eventpvp.kits.Kit;
 import org.novania.eventpvp.utils.ItemBuilder;
-
-import java.util.List;
+import org.novania.eventpvp.utils.PotionUtils;
 
 public class AssassinKit extends Kit {
     
@@ -25,7 +26,7 @@ public class AssassinKit extends Kit {
                 "§e• Épée tranchante",
                 "§e• Vitesse maximale",
                 "§e• Invisibilité temporaire",
-                "§e• Dégâts critiques"
+                "§e• Vision nocturne"
             ),
             -1, // Illimité
             true // Reset à la mort
@@ -72,16 +73,17 @@ public class AssassinKit extends Kit {
                 .addEnchantment(Enchantment.UNBREAKING, 2)
                 .build();
         
-        // Outils d'assassin
+        // Outils d'assassin - CORRECTION: Vraies potions
         ItemStack arrows = new ItemStack(Material.ARROW, 32);
-        ItemStack food = new ItemStack(Material.COOKED_SALMON, 16);
-        ItemStack speedPotions = new ItemStack(Material.POTION, 2); // TODO: Potion de vitesse II
-        ItemStack invisibilityPotions = new ItemStack(Material.POTION, 1); // TODO: Potion d'invisibilité
+        ItemStack food = new ItemStack(Material.COOKED_SALMON, 64);
+        ItemStack speedPotions = PotionUtils.EventPotions.strongSpeedPotion(2); // 2 potions de vitesse II
+        ItemStack invisibilityPotions = PotionUtils.EventPotions.invisibilityPotion(1); // 1 potion d'invisibilité
+        ItemStack nightVisionPotions = PotionUtils.EventPotions.nightVisionPotion(1); // 1 potion de vision nocturne
         ItemStack enderPearls = new ItemStack(Material.ENDER_PEARL, 3); // Pour l'évasion
         
         // Équiper le joueur
         setArmor(player, helmet, chestplate, leggings, boots);
-        giveItems(player, sword, bow, arrows, food, speedPotions, invisibilityPotions, enderPearls);
+        giveItems(player, sword, bow, arrows, food, speedPotions, invisibilityPotions, nightVisionPotions, enderPearls);
     }
     
     @Override
